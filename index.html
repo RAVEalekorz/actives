@@ -6,79 +6,92 @@
     <title>actives</title>
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <style>
-        body { background-color: #0E1117; color: white; font-family: sans-serif; margin: 20px; }
-        .card { background: #161B22; border: 1px solid #30363D; padding: 15px; border-radius: 12px; margin-bottom: 15px; }
-        h1 { color: #00FFA3; }
-        input, button { padding: 10px; border-radius: 8px; border: none; margin: 5px 0; width: 100%; box-sizing: border-box; }
-        button { background: #00FFA3; color: black; font-weight: bold; cursor: pointer; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { text-align: left; padding: 8px; border-bottom: 1px solid #30363D; }
-        .price-up { color: #00FFA3; }
+        :root { --bg: #0E1117; --card: #161B22; --accent: #00FFA3; --text: #E6EDF3; }
+        body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 0; padding: 15px; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .card { background: var(--card); border: 1px solid #30363D; padding: 20px; border-radius: 16px; margin-bottom: 15px; }
+        .balance-val { font-size: 28px; font-weight: bold; color: var(--accent); margin-top: 5px; }
+        input { background: #0D1117; border: 1px solid #30363D; color: white; padding: 12px; border-radius: 10px; width: 100%; margin-bottom: 10px; box-sizing: border-box; }
+        button { background: var(--accent); color: black; border: none; padding: 12px; border-radius: 10px; width: 100%; font-weight: bold; font-size: 16px; }
+        .asset-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #30363D; }
+        .mode-toggle { background: #30363D; padding: 5px 15px; border-radius: 20px; font-size: 12px; cursor: pointer; }
+        .active-mode { color: var(--accent); border: 1px solid var(--accent); }
     </style>
 </head>
 <body>
-    <h1>📈 actives</h1>
+
+    <div class="header">
+        <h1 style="margin:0; font-size: 24px;">📈 actives</h1>
+        <div id="mode-btn" class="mode-toggle active-mode" onclick="toggleMode()">Active Mode</div>
+    </div>
     
     <div class="card">
-        <h3>Общий баланс: <span id="total-balance">0</span> ₽</h3>
-        <div id="tester-chart" style="height: 300px;"></div>
+        <div style="color: #8B949E; font-size: 14px;">Total Balance</div>
+        <div class="balance-val" id="total-balance">0 ₽</div>
+        <div id="chart" style="height: 250px;"></div>
     </div>
 
     <div class="card">
-        <h3>Добавить актив</h3>
-        <input type="text" id="ticker" placeholder="Тикер (напр. YDEX)">
-        <input type="number" id="amount" placeholder="Количество">
-        <button onclick="addAsset()">Добавить</button>
+        <h3 style="margin-top:0">➕ Add Asset</h3>
+        <input type="text" id="ticker" placeholder="Ticker (e.g. YDEX, SBER)">
+        <input type="number" id="amount" placeholder="Quantity">
+        <button onclick="addAsset()">Add to actives</button>
     </div>
 
-    <div class="card">
-        <table>
-            <thead><tr><th>Тикер</th><th>Цена</th><th>Сумма</th></tr></thead>
-            <tbody id="asset-table"></tbody>
-        </table>
-    </div>
+    <div class="card" id="assets-list">
+        <h3 style="margin-top:0">Portfolio structure</h3>
+        </div>
 
     <script>
-        let portfolio = JSON.parse(localStorage.getItem('portfolio')) || [{t: 'YDEX', q: 10}];
+        let portfolio = JSON.parse(localStorage.getItem('portfolio')) || [{t: 'YDEX', q: 5}, {t: 'SBER', q: 50}];
+        let isActiveMode = true;
+
+        function toggleMode() {
+            isActiveMode = !isActiveMode;
+            const btn = document.getElementById('mode-btn');
+            btn.innerText = isActiveMode ? "Active Mode" : "Passive Mode";
+            btn.style.borderColor = isActiveMode ? "#00FFA3" : "#007BFF";
+            btn.style.color = isActiveMode ? "#00FFA3" : "#007BFF";
+        }
 
         async function getPrice(ticker) {
             try {
-                const response = await fetch(`https://iss.moex.com/iss/engines/stock/markets/shares/boards/TQBR/securities/${ticker}.json?iss.meta=off&iss.only=marketdata&marketdata.columns=LAST`);
-                const data = await response.json();
-                return data.marketdata.data[0][0] || 0;
+                const res = await fetch(`https://iss.moex.com/iss/engines/stock/markets/shares/boards/TQBR/securities/${ticker}.json?iss.meta=off&iss.only=marketdata&marketdata.columns=LAST`);
+                const json = await res.json();
+                return json.marketdata.data[0][0] || 0;
             } catch { return 0; }
         }
 
-        async function updateUI() {
+        async function refresh() {
             let total = 0;
             let labels = [];
             let values = [];
-            const tableBody = document.getElementById('asset-table');
-            tableBody.innerHTML = '';
+            const list = document.getElementById('assets-list');
+            list.innerHTML = '<h3 style="margin-top:0">Portfolio structure</h3>';
 
             for (let item of portfolio) {
-                const price = await getPrice(item.t);
-                const sum = price * item.q;
+                const p = await getPrice(item.t);
+                const sum = p * item.q;
                 total += sum;
                 labels.push(item.t);
                 values.push(sum);
 
-                tableBody.innerHTML += `<tr><td>${item.t}</td><td>${price} ₽</td><td>${sum.toFixed(2)} ₽</td></tr>`;
+                list.innerHTML += `
+                    <div class="asset-row">
+                        <div><b>${item.t}</b><br><small style="color:#8B949E">${item.q} shares</small></div>
+                        <div style="text-align:right"><b>${sum.toFixed(0)} ₽</b><br><small style="color:#00FFA3">${p} ₽</small></div>
+                    </div>
+                `;
             }
 
-            document.getElementById('total-balance').innerText = total.toLocaleString();
+            document.getElementById('total-balance').innerText = total.toLocaleString() + ' ₽';
             
-            Plotly.newPlot('tester-chart', [{
-                values: values,
-                labels: labels,
-                type: 'pie',
-                hole: .6,
-                marker: { colors: ['#00FFA3', '#007BFF', '#FF0055'] }
+            Plotly.newPlot('chart', [{
+                values: values, labels: labels, type: 'pie', hole: .7,
+                marker: { colors: ['#00FFA3', '#007BFF', '#FF0055', '#FFCC00', '#A371F7'] }
             }], {
-                paper_bgcolor: 'rgba(0,0,0,0)',
-                plot_bgcolor: 'rgba(0,0,0,0)',
-                showlegend: false,
-                margin: {t:0, b:0, l:0, r:0}
+                paper_bgcolor: 'rgba(0,0,0,0)', showlegend: false,
+                margin: {t:10, b:10, l:10, r:10}, font: {color: "white"}
             });
         }
 
@@ -88,11 +101,13 @@
             if(t && q) {
                 portfolio.push({t, q: parseFloat(q)});
                 localStorage.setItem('portfolio', JSON.stringify(portfolio));
-                updateUI();
+                refresh();
             }
         }
 
-        updateUI();
+        refresh();
+        setInterval(refresh, 60000); // Обновлять раз в минуту
     </script>
 </body>
 </html>
+
