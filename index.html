@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>HEISENBERG TERMINAL | Elite Wealth</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+    <style>
+        :root { --c-black: #1A1A1A; --c-gold: #AF9675; --c-cream: #F8F5F2; --c-brown: #3C2A21; }
+        * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; outline: none; }
+        
+        body { background: var(--c-cream); color: var(--c-black); font-family: 'Inter', sans-serif; margin: 0; overflow-x: hidden; }
+
+        /* Верхняя панель: Сумма над графиком */
+        .top-balance { padding: 60px 25px 0; text-align: center; }
+        .top-balance p { font-size: 11px; text-transform: uppercase; letter-spacing: 3px; color: var(--c-gold); font-weight: 700; margin: 0; }
+        .top-balance h1 { font-family: 'Playfair Display', serif; font-size: 48px; margin: 10px 0; font-weight: 900; }
+
+        /* Контейнер графика с Хайзенбергом внутри */
+        .chart-container { position: relative; width: 100%; height: 350px; margin-top: -20px; }
+        #main-chart { width: 100%; height: 100%; }
+        
+        #heisenberg-avatar {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -45%) scale(0.6);
+            width: 180px; height: 180px; z-index: 10; pointer-events: none;
+        }
+
+        /* Навигация по вкладкам */
+        .tabs { display: flex; justify-content: center; gap: 20px; margin: 20px 0; }
+        .tab-link { font-size: 12px; font-weight: 700; text-transform: uppercase; border: none; background: none; color: #AAA; cursor: pointer; border-bottom: 2px solid transparent; padding-bottom: 5px; }
+        .tab-link.active { color: var(--c-black); border-color: var(--c-gold); }
+
+        .page { display: none; padding: 0 20px 120px; }
+        .page.active { display: block; animation: fadeIn 0.4s ease; }
+
+        /* Список и Формы */
+        .card { background: white; border-radius: 20px; padding: 20px; border: 1px solid rgba(0,0,0,0.04); margin-bottom: 15px; }
+        .input-row { display: flex; gap: 10px; margin-bottom: 10px; }
+        input, select { flex: 1; padding: 14px; border-radius: 12px; border: 1px solid #EEE; background: #FAFAFA; font-size: 15px; }
+        .btn-action { width: 100%; padding: 18px; border: none; border-radius: 15px; background: var(--c-black); color: white; font-weight: 700; text-transform: uppercase; cursor: pointer; }
+
+        /* Элементы списка */
+        .asset-row { display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-bottom: 1px solid #F5F5F5; }
+        .asset-row:last-child { border: 0; }
+        .asset-meta { font-size: 12px; color: var(--c-gold); font-weight: 600; }
+        .del-btn { color: #CC0000; font-weight: bold; background: none; border: none; font-size: 18px; }
+
+        /* FX: Сцена падения */
+        #fx-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.1); z-index: 10000; display: none; backdrop-filter: blur(5px); }
+        .falling-walter { position: absolute; top: 40%; left: 50%; transform: translateX(-50%) scale(0.8); }
+        @keyframes collapse { 
+            0% { transform: translateX(-50%) scale(0.8) rotate(0); }
+            40% { transform: translateX(-50%) scale(0.8) translateY(50px); }
+            100% { transform: translateX(-30%) scale(0.8) rotate(-90deg) translateY(100px); opacity: 0; }
+        }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <div class="top-balance">
+        <p>Current Net Worth</p>
+        <h1 id="total-val">0.00 ₽</h1>
+    </div>
+
+    <div class="chart-container">
+        <div id="heisenberg-avatar">
+            <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                <path d="M60 80 Q100 50 140 80 L140 130 Q100 160 60 130 Z" fill="#EBC3A8"/>
+                <path d="M60 120 Q100 145 140 120" fill="none" stroke="#D4A181" stroke-width="2"/>
+                <rect x="55" y="70" width="90" height="12" fill="#1A1A1A" rx="2"/> <rect x="75" y="45" width="50" height="25" fill="#1A1A1A" rx="3"/> <circle cx="82" cy="100" r="10" fill="none" stroke="#111" stroke-width="2.5"/> <circle cx="118" cy="100" r="10" fill="none" stroke="#111" stroke-width="2.5"/>
+                <path d="M80 135 Q100 155 120 135 L120 125 Q100 135 80 125 Z" fill="#4B3621"/> <path d="M85 125 Q100 130 115 125" stroke="#111" fill="none" stroke-width="1.5"/> </svg>
+        </div>
+        <div id="main-chart"></div>
+    </div>
+
+    <div class="tabs">
+        <button class="tab-link active" onclick="switchTab('main', this)">Портфель</button>
+        <button class="tab-link" onclick="switchTab('divs', this)">Выплаты</button>
+    </div>
+
+    <div id="page-main" class="page active">
+        <div class="card">
+            <div class="input-row">
+                <input type="text" id="a-ticker" placeholder="Тикер (SBER, GAZP)">
+                <select id="a-type">
+                    <option value="stock">Акция</option>
+                    <option value="bond">Облигация</option>
+                </select>
+            </div>
+            <div class="input-row">
+                <input type="number" id="a-qty" placeholder="Кол-во">
+                <input type="number" id="a-price" placeholder="Цена ₽">
+            </div>
+            <button class="btn-action" onclick="register()">Зарегистрировать актив</button>
+        </div>
+        <div id="asset-list"></div>
+    </div>
+
+    <div id="page-divs" class="page">
+        <div class="card">
+            <h3 style="margin-top:0">Календарь дивидендов</h3>
+            <div id="div-calendar">
+                <p style="color:#999; font-size:13px">Добавьте активы, чтобы увидеть график выплат...</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="fx-overlay">
+        <div id="falling-walter-wrap" class="falling-walter">
+            </div>
+    </div>
+
+    <script>
+        let portfolio = JSON.parse(localStorage.getItem('v_elite_db')) || [];
+        let scenePlayed = localStorage.getItem('v_death_done') === 'true';
+
+        function switchTab(tab, btn) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.tab-link').forEach(l => l.classList.remove('active'));
+            document.getElementById('page-' + tab).classList.add('active');
+            btn.classList.add('active');
+            render();
+        }
+
+        function register() {
+            const t = document.getElementById('a-ticker').value.toUpperCase().trim();
+            const q = parseFloat(document.getElementById('a-qty').value);
+            const p = parseFloat(document.getElementById('a-price').value);
+            const type = document.getElementById('a-type').value;
+
+            if(t && q && p) {
+                let existing = portfolio.find(x => x.t === t);
+                if(existing) {
+                    existing.p = ((existing.p * existing.q) + (p * q)) / (existing.q + q);
+                    existing.q += q;
+                } else {
+                    portfolio.push({ t, q, p, type, id: Math.floor(Math.random()*99999) });
+                }
+                localStorage.setItem('v_elite_db', JSON.stringify(portfolio));
+                render();
+            }
+        }
+
+        function remove(idx) {
+            portfolio.splice(idx, 1);
+            localStorage.setItem('v_elite_db', JSON.stringify(portfolio));
+            render();
+        }
+
+        function render() {
+            let total = 0;
+            let labels = [], values = [];
+            const list = document.getElementById('asset-list');
+            const cal = document.getElementById('div-calendar');
+            list.innerHTML = '';
+            cal.innerHTML = '';
+
+            portfolio.forEach((a, i) => {
+                let cost = a.q * a.p;
+                total += cost;
+                labels.push(a.t);
+                values.push(cost);
+
+                list.innerHTML += `
+                    <div class="asset-row">
+                        <div>
+                            <div style="font-weight:700">${a.t} <span class="asset-meta">#${a.id}</span></div>
+                            <div style="font-size:12px; color:#666">${a.q} шт. | Средняя: ${Math.round(a.p)} ₽</div>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:15px">
+                            <div style="font-weight:700">${Math.round(cost).toLocaleString()} ₽</div>
+                            <button class="del-btn" onclick="remove(${i})">×</button>
+                        </div>
+                    </div>
+                `;
+
+                // Имитация календаря выплат
+                cal.innerHTML += `
+                    <div style="display:flex; justify-content:space-between; margin-bottom:10px; font-size:14px">
+                        <span><b>${a.t}</b> (Прогноз)</span>
+                        <span style="color:#2D5A27; font-weight:700">+ ${Math.round(cost * 0.09).toLocaleString()} ₽</span>
+                    </div>
+                `;
+            });
+
+            document.getElementById('total-val').innerText = total.toLocaleString('ru-RU') + ' ₽';
+            
+            if(total >= 1000000 && !scenePlayed) {
+                triggerDeath();
+            }
+
+            if(values.length) {
+                Plotly.newPlot('main-chart', [{
+                    values, labels, type: 'pie', hole: .82,
+                    marker: { colors: ['#1A1A1A', '#AF9675', '#3C2A21', '#D5CEA3'] },
+                    textinfo: 'none'
+                }], {
+                    paper_bgcolor: 'rgba(0,0,0,0)',
+                    showlegend: false,
+                    margin: {t:0,b:0,l:40,r:40}
+                }, {displayModeBar: false});
+            }
+        }
+
+        function triggerDeath() {
+            scenePlayed = true;
+            localStorage.setItem('v_death_done', 'true');
+            const fx = document.getElementById('fx-overlay');
+            const wrap = document.getElementById('falling-walter-wrap');
+            wrap.innerHTML = document.getElementById('heisenberg-avatar').innerHTML;
+            fx.style.display = 'block';
+            setTimeout(() => {
+                wrap.style.animation = 'collapse 5s cubic-bezier(0.2, 0, 0, 1) forwards';
+            }, 500);
+            setTimeout(() => fx.style.display = 'none', 6000);
+        }
+
+        render();
+    </script>
+</body>
+</html>
