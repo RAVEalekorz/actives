@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ACTIVES.SYSTEM | Premium</title>
+    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+    <style>
+        :root {
+            --bg: #F2F2F7;
+            --card: #FFFFFF;
+            --accent: #1C1C1E;
+            --gold: #AF9675;
+            --coffee: #3C2A21;
+        }
+        body { 
+            background: var(--bg); color: var(--accent); 
+            font-family: -apple-system, system-ui, sans-serif;
+            margin: 0; overflow: hidden; height: 100vh;
+        }
+
+        /* Apple-style Swipe Navigation */
+        .viewport {
+            display: flex; width: 200vw; height: 100vh;
+            transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+        .page { width: 100vw; height: 100vh; overflow-y: auto; padding: 20px; box-sizing: border-box; }
+
+        .header { padding: 40px 20px 20px; }
+        .header h1 { font-size: 34px; font-weight: 800; letter-spacing: -1px; margin: 0; }
+
+        .card { 
+            background: var(--card); border-radius: 20px; padding: 24px; 
+            margin-bottom: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.04);
+        }
+
+        /* Форма ввода */
+        .input-group { margin-bottom: 15px; }
+        label { font-size: 12px; font-weight: 700; color: var(--gold); text-transform: uppercase; margin-bottom: 6px; display: block; }
+        input, select { 
+            background: #F2F2F7; border: none; padding: 16px; 
+            border-radius: 14px; width: 100%; font-size: 17px; box-sizing: border-box;
+        }
+        
+        .btn-main { 
+            background: var(--coffee); color: white; border: none; 
+            padding: 18px; border-radius: 16px; width: 100%; 
+            font-weight: 700; font-size: 17px; margin-top: 10px;
+        }
+
+        /* Пончик и Хайзенберг */
+        .chart-box { position: relative; width: 100%; height: 300px; display: flex; justify-content: center; align-items: center; }
+        #heisenberg-center {
+            position: absolute; width: 140px; height: 140px; 
+            z-index: 5; pointer-events: none; opacity: 0.9;
+        }
+
+        .asset-item { 
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 18px 0; border-bottom: 0.5px solid #E5E5EA;
+        }
+        .asset-type { font-size: 10px; background: #E5E5EA; padding: 2px 6px; border-radius: 4px; margin-bottom: 4px; display: inline-block; }
+
+        /* Нижний таб-бар */
+        .tab-bar {
+            position: fixed; bottom: 0; width: 100%; height: 85px;
+            background: rgba(255,255,255,0.8); backdrop-filter: blur(20px);
+            display: flex; justify-content: space-around; padding-top: 10px;
+            border-top: 0.5px solid #D1D1D6;
+        }
+        .tab-item { border: none; background: none; font-size: 11px; font-weight: 600; color: #8E8E93; cursor: pointer; }
+        .tab-item.active { color: var(--coffee); }
+
+        /* Анимация смерти */
+        #death-fx {
+            position: fixed; top:0; left:0; width:100%; height:100%; 
+            background: rgba(0,0,0,0.1); z-index: 9999; display: none;
+            pointer-events: none;
+        }
+        .falling-h { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%) scale(0.6); }
+        @keyframes collapse { 
+            30% { transform: translate(-50%, 0) scale(0.6); }
+            100% { transform: translate(-30%, 50px) scale(0.6) rotate(-95deg); opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="viewport" id="viewport">
+        <div class="page">
+            <div class="header"><h1>Добавить.</h1></div>
+            <div class="card">
+                <div class="input-group">
+                    <label>Тип актива</label>
+                    <select id="type" onchange="toggleBond()">
+                        <option value="stock">Акция</option>
+                        <option value="bond">Облигация</option>
+                    </select>
+                </div>
+
+                <div id="bond-selector" class="input-group" style="display:none">
+                    <label>Вид облигации</label>
+                    <select id="bond-cat">
+                        <option value="ОФЗ">ОФЗ (Государственные)</option>
+                        <option value="КОРП">Корпоративные / Номерные</option>
+                    </select>
+                </div>
+
+                <div class="input-group">
+                    <label>Тикер / Название / Номер</label>
+                    <input type="text" id="ticker" placeholder="напр: sber или 26238" autocomplete="off">
+                </div>
+
+                <div class="input-group">
+                    <label>Количество</label>
+                    <input type="number" id="qty" placeholder="0" inputmode="decimal">
+                </div>
+
+                <button class="btn-main" onclick="add()">Внести в реестр</button>
+            </div>
+        </div>
+
+        <div class="page">
+            <div class="header"><h1>Портфель.</h1></div>
+            <div class="card">
+                <div style="font-size: 14px; color: var(--gold); font-weight: 700;">ОБЩИЙ КАПИТАЛ</div>
+                <div style="font-size: 34px; font-weight: 800; margin: 5px 0;" id="total-val">0 ₽</div>
+                
+                <div class="chart-box">
+                    <div id="heisenberg-center">
+                        <svg viewBox="0 0 200 200">
+                            <path d="M60 80 Q100 50 140 80 L140 130 Q100 160 60 130 Z" fill="#EBC3A8"/>
+                            <rect x="55" y="70" width="90" height="10" fill="#1A1A1A" rx="2"/>
+                            <rect x="75" y="45" width="50" height="25" fill="#1A1A1A" rx="3"/>
+                            <circle cx="82" cy="100" r="10" fill="none" stroke="#111" stroke-width="2"/>
+                            <circle cx="118" cy="100" r="10" fill="none" stroke="#111" stroke-width="2"/>
+                            <path d="M80 135 Q100 155 120 135 L120 125 Q100 135 80 125 Z" fill="#4B3621"/>
+                        </svg>
+                    </div>
+                    <div id="chart"></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <label>Ваши активы</label>
+                <div id="assets-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="death-fx">
+        <div class="falling-h" id="h-body">
+            <svg viewBox="0 0 200 200" width="200"><path d="M60 80 Q100 50 140 80 L140 130 Q100 160 60 130 Z" fill="#EBC3A8"/><rect x="55" y="70" width="90" height="10" fill="#1A1A1A" rx="2"/><rect x="75" y="45" width="50" height="25" fill="#1A1A1A" rx="3"/><circle cx="82" cy="100" r="10" fill="none" stroke="#111" stroke-width="2"/><circle cx="118" cy="100" r="10" fill="none" stroke="#111" stroke-width="2"/><path d="M80 135 Q100 155 120 135 L120 125 Q100 135 80 125 Z" fill="#4B3621"/></svg>
+        </div>
+    </div>
+
+    <nav class="tab-bar">
+        <button class="tab-item active" onclick="go(0, this)">ДОБАВИТЬ</button>
+        <button class="tab-item" onclick="go(1, this)">ПОРТФЕЛЬ</button>
+    </nav>
+
+    <script>
+        let db = JSON.parse(localStorage.getItem('apple_wealth')) || [];
+        let deathTriggered = localStorage.getItem('death_done') === 'true';
+
+        function go(idx, btn) {
+            document.getElementById('viewport').style.transform = `translateX(-${idx * 100}vw)`;
+            document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+            btn.classList.add('active');
+            render();
+        }
+
+        function toggleBond() {
+            document.getElementById('bond-selector').style.display = 
+                document.getElementById('type').value === 'bond' ? 'block' : 'none';
+        }
+
+        function add() {
+            const rawT = document.getElementById('ticker').value;
+            const t = rawT.toUpperCase().trim(); // Авто-регистр
+            const q = parseFloat(document.getElementById('qty').value);
+            const type = document.getElementById('type').value;
+            const cat = type === 'bond' ? document.getElementById('bond-cat').value : 'АКЦИЯ';
+
+            if(t && q) {
+                db.push({t, q, type, cat, price: Math.random() * 3000 + 100}); // Имитация цены
+                localStorage.setItem('apple_wealth', JSON.stringify(db));
+                alert('Успешно внесено');
+                document.getElementById('ticker').value = '';
+                document.getElementById('qty').value = '';
+            }
+        }
+
+        function render() {
+            let total = 0;
+            let labels = [], values = [];
+            const list = document.getElementById('assets-list');
+            list.innerHTML = '';
+
+            db.forEach(a => {
+                let sum = a.q * a.price;
+                total += sum;
+                labels.push(a.t);
+                values.push(sum);
+
+                list.innerHTML += `
+                    <div class="asset-item">
+                        <div>
+                            <span class="asset-type">${a.cat}</span>
+                            <div style="font-weight:700">${a.t}</div>
+                            <div style="font-size:12px; color:#8E8E93">${a.q} ед.</div>
+                        </div>
+                        <div style="text-align:right">
+                            <div style="font-weight:700">${Math.round(sum).toLocaleString()} ₽</div>
+                            <div style="font-size:12px; color:var(--gold)">${Math.round(a.price)} ₽/ед</div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            document.getElementById('total-val').innerText = Math.round(total).toLocaleString() + ' ₽';
+            
+            // Сцена смерти
+            if(total >= 1000000 && !deathTriggered) {
+                deathTriggered = true;
+                localStorage.setItem('death_done', 'true');
+                const fx = document.getElementById('death-fx');
+                fx.style.display = 'block';
+                document.getElementById('h-body').style.animation = 'collapse 4s forwards';
+            }
+
+            if(values.length) {
+                Plotly.newPlot('chart', [{
+                    values, labels, type: 'pie', hole: .82,
+                    marker: { colors: ['#1C1C1E', '#AF9675', '#3C2A21', '#D1D1D6'] },
+                    textinfo: 'none'
+                }], {
+                    paper_bgcolor: 'rgba(0,0,0,0)', showlegend: false,
+                    margin: {t:0,b:0,l:0,r:0}
+                }, {displayModeBar: false});
+            }
+        }
+        render();
+    </script>
+</body>
+</html>
