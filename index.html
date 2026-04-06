@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>actives | system PRO</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+    <style>
+        :root { 
+            --bg: #F0F2F5; 
+            --text: #2C2C2C; 
+            --accent: #8B7355; 
+            --secondary: #A6A6A6; 
+            /* ЭФФЕКТ СТЕКЛА */
+            --glass-bg: rgba(255, 255, 255, 0.4);
+            --glass-border: rgba(255, 255, 255, 0.2);
+            --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+        }
+        
+        body { 
+            background: var(--bg); 
+            color: var(--text); 
+            font-family: 'Inter', sans-serif; 
+            margin: 0; 
+            padding-bottom: 90px; 
+            overflow-x: hidden;
+        }
+        
+        /* ГЛОБАЛЬНЫЕ ЗАГОЛОВКИ И ЦИФРЫ */
+        h1, h2, h3, .val, .asset-name, .header-text { font-family: 'Montserrat', sans-serif; font-weight: 700; }
+
+        .bottom-nav { 
+            position: fixed; bottom: 0; width: 100%; 
+            background: rgba(255, 255, 255, 0.8); 
+            backdrop-filter: blur(10px); 
+            display: flex; justify-content: space-around; 
+            padding: 18px 0; border-top: 1px solid var(--glass-border); 
+            z-index: 100; box-shadow: 0 -4px 15px rgba(0,0,0,0.03);
+        }
+        .nav-item { border: none; background: none; color: var(--secondary); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; }
+        .nav-item.active { color: var(--accent); position: relative; }
+        .nav-item.active::after { content:''; position:absolute; bottom:-8px; left:50%; transform:translateX(-50%); width:5px; height:5px; background:var(--accent); border-radius:50%; }
+
+        .page { display: none; padding: 25px; animation: fadeIn 0.4s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .page.active { display: block; }
+        
+        /* LIQUID GLASS ЭФФЕКТ ДЛЯ КАРТОЧЕК */
+        .card { 
+            background: var(--glass-bg); 
+            backdrop-filter: blur(15px); 
+            -webkit-backdrop-filter: blur(15px); 
+            border-radius: 28px; 
+            padding: 28px; 
+            margin-bottom: 18px; 
+            border: 1px solid var(--glass-border); 
+            box-shadow: var(--glass-shadow); 
+            position: relative;
+            overflow: hidden; /* Важно для анимации */
+        }
+        
+        .card::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 100%);
+            pointer-events: none;
+        }
+
+        .header-text { font-size: 16px; margin-bottom: 25px; color: var(--accent); letter-spacing: 2px; text-align: center; text-transform: uppercase; }
+        
+        input, select { 
+            background: rgba(255, 255, 255, 0.6); 
+            border: 1px solid rgba(224, 224, 224, 0.5); 
+            padding: 16px; border-radius: 14px; width: 100%; margin-bottom: 12px; 
+            box-sizing: border-box; font-size: 16px; outline: none; 
+            font-family: 'Inter', sans-serif;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+        }
+        input:focus { border-color: var(--accent); background: rgba(255,255,255,0.9); }
+        
+        /* LIQUID GLASS КНОПКА */
+        button.main-btn { 
+            background: linear-gradient(145deg, #A1886F, #8B7355);
+            color: white; border: none; padding: 18px; border-radius: 16px; 
+            width: 100%; font-weight: 700; font-size: 17px; 
+            font-family: 'Montserrat', sans-serif;
+            letter-spacing: 1px;
+            box-shadow: 0 6px 20px rgba(139, 115, 85, 0.3);
+            transition: all 0.2s ease;
+            position: relative; overflow: hidden;
+        }
+        button.main-btn:active { transform: translateY(2px); box-shadow: 0 3px 10px rgba(139, 115, 85, 0.2); }
+        button.main-btn::after {
+            content:''; position:absolute; top:-50%; left:-50%; width:200%; height:200%;
+            background: linear-gradient(135deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0) 100%);
+            transform: rotate(45deg); transition: all 0.3s;
+        }
+        button.main-btn:hover::after { left: 100%; }
+        
+        .asset-item { display: flex; justify-content: space-between; align-items: center; padding: 18px 0; border-bottom: 1px solid rgba(238, 238, 238, 0.5); }
+        .asset-name { font-size: 17px; margin-bottom: 2px; }
+        .badge { font-size: 10px; padding: 4px 10px; border-radius: 8px; text-transform: uppercase; font-weight: 700; margin-left: 6px; font-family: 'Montserrat', sans-serif; }
+        .badge-stock { background: #E5D3B3; color: #8B7355; }
+        .badge-bond { background: #D0E1F9; color: #4A90E2; }
+        
+        .div-row { display: flex; justify-content: space-between; font-size: 15px; padding: 12px 0; border-bottom: 1px solid rgba(249, 249, 249, 0.5); font-family: 'Inter', sans-serif; }
+        .div-row b { color: var(--accent); font-family: 'Montserrat', sans-serif; }
+        .del-btn { color: #EE4B2B; background: none; border: none; font-size: 24px; padding: 0 12px; cursor: pointer; opacity: 0.6; transition: opacity 0.2s; }
+        .del-btn:hover { opacity: 1; }
+
+        /* --- АНИМАЦИЯ НА МИЛЛИОН (УОЛТЕР УАЙТ) --- */
+        #walter-container {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: none; justify-content: center; align-items: center;
+            z-index: 5; pointer-events: none; /* Пропускает клики */
+        }
+        
+        /* Рисованный Уолтер */
+        #walter-heisenberg {
+            position: absolute; width: 200px; height: 200px;
+            background: url('https://img.icons8.com/wired/256/ffffff/breaking-bad.png') no-repeat center/contain;
+            filter: invert(1); opacity: 0;
+            transform: scale(1.5);
+            transition: all 0.5s ease-out;
+        }
+
+        /* Трещины на стекле */
+        #glass-crack {
+            position: absolute; width: 100%; height: 100%;
+            background: url('https://i.ibb.co/XxdXF9P/glass-crack.png') no-repeat center/cover;
+            opacity: 0; transform: scale(0.8);
+            transition: all 0.3s ease-in;
+            z-index: 10;
+        }
+
+        /* Денежный дождь */
+        #money-rain-container {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: none; z-index: 15; pointer-events: none;
+        }
+        .money {
+            position: absolute; width: 40px; height: 20px;
+            background: url('https://img.icons8.com/emoji/96/000000/money-bag-emoji.png') no-repeat center/contain;
+            opacity: 0; animation: rain 3s linear;
+        }
+        @keyframes rain {
+            0% { top: -50px; opacity: 1; transform: rotate(0deg); }
+            100% { top: 120%; opacity: 0; transform: rotate(360deg); }
+        }
+
+        /* Класс активации анимации */
+        .mil-active #walter-heisenberg { opacity: 0.25; transform: scale(1); }
+        .mil-active #glass-crack { opacity: 1; transform: scale(1); }
+
+    </style>
+</head>
+<body>
+
+    <div id="market" class="page active">
+        <div class="header-text">УПРАВЛЕНИЕ АКТИВАМИ</div>
+        <div class="card">
+            <select id="type">
+                <option value="stock">Акция Мосбиржи</option>
+                <option value="bond">Облигация (ОФЗ/Корп)</option>
+            </select>
+            <input type="text" id="t" placeholder="Тикер (YDEX, SBER, SU...)">
+            <input type="number" id="q" placeholder="Количество">
+            <input type="number" id="p" placeholder="Цена покупки">
+            <button class="main-btn" onclick="addAsset()">Добавить в портфель</button>
+        </div>
+        <div class="card">
+            <h3 style="font-size: 18px; margin: 0 0 20px 0;">Мои активы</h3>
+            <div id="assets-list"></div>
+        </div>
+    </div>
+
+    <div id="profile" class="page">
+        <div class="header-text">АНАЛИТИКА ПОРТФЕЛЯ</div>
+        
+        <div class="card" id="analytics-card" style="text-align: center; padding-top: 35px;">
+            
+            <div id="walter-container">
+                <div id="walter-heisenberg"></div>
+                <div id="glass-crack"></div>
+                <div id="money-rain-container"></div>
+            </div>
+
+            <div style="color: #A6A6A6; font-size: 13px; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1.5px;">Текущая стоимость</div>
+            <div id="total-val" class="val" style="font-size: 36px; letter-spacing: -1.5px; color: var(--accent);">0 ₽</div>
+            <div id="chart" style="width: 100%; height: 260px; z-index: 2; position: relative;"></div>
+        </div>
+        
+        <div class="card">
+            <h3 style="font-size: 18px; margin: 0 0 18px 0;">Ближайшие выплаты</h3>
+            <div id="div-calendar">
+                <div style="color: #AAA; font-size: 14px; text-align: center; padding: 25px;">Добавьте активы для графика выплат</div>
+            </div>
+        </div>
+    </div>
+
+    <nav class="bottom-nav">
+        <button class="nav-item active" onclick="showPage('market', this)">Портфель</button>
+        <button class="nav-item" onclick="showPage('profile', this)">Профиль</button>
+    </nav>
+
+    <script>
+        let portfolio = JSON.parse(localStorage.getItem('portfolio')) || [];
+        let animationTriggered = false; // Чтобы анимация не срабатывала постоянно
+        
+        const payoutDates = {
+            'SBER': '15.05.2026 (Див)',
+            'LKOH': '05.06.2026 (Див)',
+            'GAZP': '10.07.2026 (Див)',
+            'YDEX': '20.08.2026 (Див)',
+            'SU26238': '12.06.2026 (Купон)'
+        };
+
+        function showPage(id, btn) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            btn.classList.add('active');
+            updateUI();
+        }
+
+        async function getPrice(ticker) {
+            try {
+                const r = await fetch(`https://iss.moex.com/iss/engines/stock/markets/shares/boards/TQBR/securities/${ticker}.json?iss.meta=off&iss.only=marketdata&marketdata.columns=LAST`);
+                const d = await r.json();
+                if (d.marketdata.data.length > 0) return d.marketdata.data[0][0] || 0;
+                
+                const rb = await fetch(`https://iss.moex.com/iss/engines/stock/markets/bonds/boards/TQCB/securities/${ticker}.json?iss.meta=off&iss.only=marketdata&marketdata.columns=LAST`);
+                const db = await rb.json();
+                return db.marketdata.data[0][0] || 1000;
+            } catch { return 0; }
+        }
+
+        function addAsset() {
+            const t = document.getElementById('t').value.toUpperCase().trim();
+            const q = parseFloat(document.getElementById('q').value);
+            const p = parseFloat(document.getElementById('p').value);
+            const type = document.getElementById('type').value;
+            
+            if(t && q && p) {
+                const existing = portfolio.find(item => item.t === t);
+                if (existing) {
+                    existing.p = ((existing.p * existing.q) + (p * q)) / (existing.q + q);
+                    existing.q += q;
+                } else {
+                    portfolio.push({t, q, p, type});
+                }
+                localStorage.setItem('portfolio', JSON.stringify(portfolio));
+                document.getElementById('t').value = '';
+                document.getElementById('q').value = '';
+                document.getElementById('p').value = '';
+                updateUI();
+            }
+        }
+
+        function removeAsset(index) {
+            portfolio.splice(index, 1);
+            localStorage.setItem('portfolio', JSON.stringify(portfolio));
+            updateUI();
+        }
+
+        // Функция запуска анимации на миллион
+        function triggerMillionAnimation() {
+            const card = document.getElementById('analytics-card');
+            const walterContainer = document.getElementById('walter-container');
+            const moneyRain = document.getElementById('money-rain-container');
+            
+            // Сброс предыдущего состояния (на всякий случай)
+            animationTriggered = true;
+            card.classList.remove('mil-active');
+            
+            // Активация Уолтера и трещин (через небольшую задержку)
+            setTimeout(() => {
+                walterContainer.style.display = 'flex';
+                moneyRain.style.display = 'block';
+                
+                card.classList.add('mil-active');
+                
+                // Вспышка и звук (звук можно добавить при желании)
+                
+                // Создаем денежный дождь (3 секунды)
+                for(let i=0; i<30; i++) {
+                    setTimeout(() => {
+                        const money = document.createElement('div');
+                        money.className = 'money';
+                        money.style.left = Math.random() * 100 + '%';
+                        money.style.animationDelay = Math.random() * 0.5 + 's';
+                        moneyRain.appendChild(money);
+                    }, i * 100);
+                }
+                
+                // Выключаем всё через 3.5 секунды
+                setTimeout(() => {
+                    card.classList.remove('mil-active');
+                    setTimeout(() => {
+                        walterContainer.style.display = 'none';
+                        moneyRain.style.display = 'none';
+                        moneyRain.innerHTML = '';
+                    }, 500); // Даем время на плавное исчезновение Уолтера
+                }, 3500);
+                
+            }, 100);
+        }
+
+        async function updateUI() {
+            let total = 0;
+            let labels = [], values = [];
+            const list = document.getElementById('assets-list');
+            const calendar = document.getElementById('div-calendar');
+            
+            list.innerHTML = '';
+            calendar.innerHTML = '';
+            let hasPayouts = false;
+
+            for (let i = 0; i < portfolio.length; i++) {
+                const a = portfolio[i];
+                const price = await getPrice(a.t);
+                const sum = price * a.q;
+                total += sum;
+                if(sum > 0) { labels.push(a.t); values.push(sum); }
+
+                // Список активов
+                list.innerHTML += `
+                    <div class="asset-item">
+                        <div>
+                            <div class="asset-name">${a.t}</div> 
+                            <span class="badge ${a.type === 'stock' ? 'badge-stock' : 'badge-bond'}">${a.type === 'stock' ? 'Акция' : 'Бонд'}</span>
+                            <div style="font-size:12px; color:#999; margin-top:3px">${a.q} шт. @ ${a.p.toFixed(2)} ₽</div>
+                        </div>
+                        <div style="display:flex; align-items:center">
+                            <div class="val" style="font-size:18px; margin-right:10px">${Math.round(sum).toLocaleString()} ₽</div>
+                            <button class="del-btn" onclick="removeAsset(${i})">×</button>
+                        </div>
+                    </div>`;
+
+                // Наполнение календаря
+                if (payoutDates[a.t]) {
+                    hasPayouts = true;
+                    calendar.innerHTML += `
+                        <div class="div-row">
+                            <span>${a.t}</span>
+                            <b>${payoutDates[a.t]}</b>
+                        </div>`;
+                }
+            }
+
+            if (!hasPayouts) { calendar.innerHTML = '<div style="color: #AAA; font-size: 14px; text-align: center; padding: 25px;">Нет данных о ближайших выплатах</div>'; }
+
+            document.getElementById('total-val').innerText = Math.round(total).toLocaleString('ru-RU') + ' ₽';
+            
+            // --- ТРИГГЕР АНИМАЦИИ НА МИЛЛИОН ---
+            if (total >= 1000000 && !animationTriggered) {
+                triggerMillionAnimation();
+            } else if (total < 1000000) {
+                animationTriggered = false; // Сброс триггера, если баланс упал
+            }
+            
+            // Рисование графика
+            if (values.length > 0) {
+                Plotly.newPlot('chart', [{ 
+                    values, labels, type: 'pie', hole: .8, 
+                    marker: { colors: ['#8B7355', '#C4A484', '#D2B48C', '#EBEBEB', '#DCDCDC'] }, 
+                    textinfo: 'none', hoverinfo: 'label+percent'
+                }], { 
+                    paper_bgcolor: 'rgba(0,0,0,0)', showlegend: false, 
+                    margin: {t:10, b:10, l:15, r:15},
+                    annotations: [{ font: { size: 12 }, showarrow: false, text: '', x: 0.5, y: 0.5 }]
+                }, {displayModeBar: false});
+            }
+        }
+
+        // Начальная загрузка
+        updateUI();
+    </script>
+</body>
+</html>
