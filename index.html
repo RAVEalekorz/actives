@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PRIVATE TERMINAL | Final Edition</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+    <style>
+        :root { --dark: #2C2621; --cream: #FDFCFB; --latte: #E2D9D0; --gold: #C5A059; --accent: #4A3F35; }
+        * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; outline: none; }
+        body { background: var(--cream); color: var(--dark); font-family: 'Inter', sans-serif; margin: 0; padding: 20px; padding-bottom: 60px; }
+
+        .header { font-family: 'Playfair Display', serif; font-size: 28px; margin-bottom: 25px; text-align: center; letter-spacing: -1px; }
+        
+        /* Секция Аналитики */
+        #main-chart { width: 100%; height: 300px; margin-top: -30px; }
+        .total-display { text-align: center; margin-bottom: 20px; }
+        .total-display h1 { font-family: 'Playfair Display', serif; font-size: 38px; margin: 0; }
+        .total-display p { font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: var(--gold); font-weight: 700; margin: 5px 0; }
+
+        /* Форма под пончиком */
+        .reg-zone { background: white; border-radius: 20px; padding: 20px; border: 1px solid rgba(0,0,0,0.05); margin-bottom: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.02); }
+        .row { display: flex; gap: 10px; margin-bottom: 12px; }
+        .col { flex: 1; }
+        label { font-size: 9px; font-weight: 800; text-transform: uppercase; color: var(--gold); display: block; margin-bottom: 5px; }
+        input, select { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--latte); background: #FCFAFA; font-size: 14px; font-family: inherit; color: var(--dark); }
+        .btn-reg { width: 100%; padding: 15px; border: none; border-radius: 10px; background: var(--dark); color: white; font-weight: 700; text-transform: uppercase; cursor: pointer; transition: 0.2s; }
+        .btn-reg:active { transform: scale(0.98); }
+
+        /* Список активов */
+        .asset-card { background: white; border-radius: 15px; padding: 18px; margin-bottom: 12px; border: 1px solid rgba(0,0,0,0.04); position: relative; display: flex; justify-content: space-between; align-items: center; animation: slideUp 0.4s ease; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .asset-info b { font-size: 16px; display: block; }
+        .asset-info span { font-size: 11px; color: var(--gold); font-weight: 600; }
+        .asset-date { font-size: 10px; color: #999; margin-top: 4px; font-style: italic; }
+        .asset-price { text-align: right; font-weight: 700; font-size: 16px; }
+        .btn-del { position: absolute; top: -5px; right: -5px; width: 22px; height: 22px; background: #EEE; border-radius: 50%; border: none; font-size: 14px; cursor: pointer; color: #888; display: flex; align-items: center; justify-content: center; }
+
+        /* FX */
+        #fx-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 9999; display: none; }
+        #heisenberg { position: absolute; bottom: 20%; left: 50%; transform: translateX(-50%) scale(0.5); opacity: 0; transform-origin: bottom center; }
+        @keyframes die-dramatic { 
+            0% { transform: translateX(-50%) scale(0.5) rotate(0deg); }
+            40% { transform: translateX(-50%) scale(0.5) translateY(30px); } 
+            100% { transform: translateX(-40%) scale(0.5) rotate(-90deg) translateY(60px); opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">Capital Management</div>
+
+    <div class="total-display">
+        <p>Чистая стоимость портфеля</p>
+        <h1 id="total-val">0 ₽</h1>
+        <div id="main-chart"></div>
+    </div>
+
+    <div class="reg-zone">
+        <div class="row">
+            <div class="col">
+                <label>Инструмент</label>
+                <select id="a-type">
+                    <option value="stock">Акция</option>
+                    <option value="bond">Облигация (ОФЗ/Корп)</option>
+                </select>
+            </div>
+            <div class="col">
+                <label>Тикер</label>
+                <input type="text" id="a-ticker" placeholder="SBER">
+            </div>
+        </div>
+        <div class="row">
+            <div class="col">
+                <label>Кол-во</label>
+                <input type="number" id="a-qty" placeholder="0">
+            </div>
+            <div class="col">
+                <label>Цена ₽</label>
+                <input type="number" id="a-price" placeholder="0">
+            </div>
+        </div>
+        <label>Дата выплаты дивидендов/купона</label>
+        <input type="date" id="a-date" style="margin-bottom: 15px;">
+        <button class="btn-reg" onclick="register()">Зарегистрировать</button>
+    </div>
+
+    <div id="asset-feed"></div>
+
+    <div id="fx-canvas">
+        <div id="heisenberg">
+            <svg viewBox="0 0 200 300" width="250">
+                <path d="M70 60 Q100 30 130 60 L130 100 Q100 130 70 100 Z" fill="#E8C1A0"/>
+                <rect x="60" y="55" width="80" height="8" fill="#1C1C1C"/>
+                <rect x="75" y="42" width="50" height="15" fill="#1C1C1C"/>
+                <circle cx="85" cy="85" r="7" fill="none" stroke="#111" stroke-width="2"/>
+                <circle cx="115" cy="85" r="7" fill="none" stroke="#111" stroke-width="2"/>
+                <path d="M85 110 Q100 125 115 110" fill="#4B3621"/>
+                <rect x="70" y="125" width="60" height="85" rx="8" fill="#4B6344"/>
+                <rect x="50" y="135" width="18" height="8" fill="#222" transform="rotate(-15 50 135)"/>
+            </svg>
+        </div>
+    </div>
+
+    <script>
+        let portfolio = JSON.parse(localStorage.getItem('private_port_v4')) || [];
+        let sceneSeen = localStorage.getItem('h_scene_done') === 'true';
+
+        function register() {
+            const t = document.getElementById('a-ticker').value.toUpperCase().trim();
+            const q = parseFloat(document.getElementById('a-qty').value);
+            const p = parseFloat(document.getElementById('a-price').value);
+            const d = document.getElementById('a-date').value;
+            const type = document.getElementById('a-type').value;
+
+            if(!t || !q || !p) return;
+
+            // Схлопывание: ищем существующий актив
+            let existing = portfolio.find(item => item.t === t);
+            if(existing) {
+                // Средневзвешенная цена
+                existing.p = ((existing.p * existing.q) + (p * q)) / (existing.q + q);
+                existing.q += q;
+                existing.d = d || existing.d; // Обновляем дату, если ввели новую
+            } else {
+                portfolio.push({ t, q, p, d, type });
+            }
+
+            localStorage.setItem('private_port_v4', JSON.stringify(portfolio));
+            render();
+            
+            // Очистка полей
+            document.getElementById('a-ticker').value = '';
+            document.getElementById('a-qty').value = '';
+            document.getElementById('a-price').value = '';
+        }
+
+        function deleteItem(idx) {
+            portfolio.splice(idx, 1);
+            localStorage.setItem('private_port_v4', JSON.stringify(portfolio));
+            render();
+        }
+
+        function checkScene(total) {
+            if(total >= 1000000 && !sceneSeen) {
+                sceneSeen = true;
+                localStorage.setItem('h_scene_done', 'true');
+                const fx = document.getElementById('fx-canvas'), h = document.getElementById('heisenberg');
+                fx.style.display = 'block';
+                setTimeout(() => h.style.opacity = '1', 500);
+                setTimeout(() => {
+                    h.style.animation = 'die-dramatic 5s forwards';
+                }, 3000);
+                setTimeout(() => fx.style.display = 'none', 9000);
+            }
+        }
+
+        function render() {
+            let totalSum = 0;
+            let labels = [], values = [];
+            const feed = document.getElementById('asset-feed');
+            feed.innerHTML = '';
+
+            portfolio.forEach((a, i) => {
+                let cost = a.q * a.p;
+                totalSum += cost;
+                labels.push(a.t);
+                values.push(cost);
+
+                feed.innerHTML += `
+                    <div class="asset-card">
+                        <button class="btn-del" onclick="deleteItem(${i})">×</button>
+                        <div class="asset-info">
+                            <b>${a.t}</b>
+                            <span>${Math.round(a.q)} шт. @ ${Math.round(a.p)} ₽</span>
+                            <div class="asset-date">Выплата: ${a.d ? new Date(a.d).toLocaleDateString() : '—'}</div>
+                        </div>
+                        <div class="asset-price">${Math.round(cost).toLocaleString()} ₽</div>
+                    </div>
+                `;
+            });
+
+            document.getElementById('total-val').innerText = Math.round(totalSum).toLocaleString() + ' ₽';
+            checkScene(totalSum);
+
+            if(values.length) {
+                Plotly.newPlot('main-chart', [{
+                    values, labels, type: 'pie', hole: .84,
+                    marker: { colors: ['#2C2621', '#C5A059', '#E2D9D0', '#4A3F35', '#8E857D'] },
+                    textinfo: 'none'
+                }], {
+                    paper_bgcolor: 'rgba(0,0,0,0)',
+                    showlegend: false,
+                    margin: {t:0,b:0,l:40,r:40}
+                }, {displayModeBar: false});
+            } else {
+                document.getElementById('main-chart').innerHTML = '';
+            }
+        }
+
+        render();
+    </script>
+</body>
+</html>
